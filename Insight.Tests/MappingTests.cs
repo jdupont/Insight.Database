@@ -681,5 +681,47 @@ namespace Insight.Tests
             Connection().SingleSql<A388>("SELECT A=1, 2");
             Connection().SingleSql<B388>("SELECT A=1, 2");
         }
+     
+        
+        [Test]
+        public void GetOnlyProperty_TypeConversionExceptionOnPropertyWhichIsNotAssigned()
+        {
+	        try
+	        {
+		        Connection().ExecuteSql(
+			        @"CREATE TABLE [ItemTable](
+						[ItemName] [varchar](50) NOT NULL
+					);
+					INSERT INTO [ItemTable] ([ItemName]) VALUES ('My Item Name');");
+
+		        var populatedName = Connection().QuerySql<MyItem_ReadsName>("SELECT [ItemName] FROM [ItemTable];");
+		        Assert.AreEqual("My Item Name", populatedName.First().ItemName, "Standard Insight use case -- property with getter and setter which lines up to column name in table");
+		        
+		        var nullName = Connection().QuerySql<MyItem_IgnoresName>("SELECT [ItemName] FROM [ItemTable];");
+		        Assert.Null(nullName.First().ItemName, "Column in table maps to get-only property, so Insight does not assign it");
+		        
+		        Assert.DoesNotThrow(() => Connection().QuerySql<MyItem_ThrowsTypeConversionException>("SELECT [ItemName] FROM [ItemTable];"),
+			        "Get-only property would not be assigned from db column, so type mapping should not throw exception when property type isn't compatible with column type.");
+	        }
+	        finally
+	        {
+		        Connection().ExecuteSql("DROP TABLE [ItemTable]");
+	        }
+        }
+
+        private class MyItem_ThrowsTypeConversionException
+        {
+	        public Int64 ItemName { get; }
+        }
+
+        private class MyItem_ReadsName
+        {
+	        public string ItemName { get; set; }
+        }
+
+        private class MyItem_IgnoresName
+        {
+	        public string ItemName { get; }
+        }
     }
 }
